@@ -110,7 +110,7 @@ Topic folder: `D:\youtube\short videos\<topic>\`. Pick topics from `D:\youtube\s
 | 1 | "start short video <topic>" | Writes titles, a ~30-45 s Telugu script (hook, explanation, follow outro), description, tags. No section labels such as [హుక్] / [వివరణ] | `youtube_short_script.txt` |
 | 2 | "generate audio" | Writes spoken text only, generates ONE ElevenLabs file (same account safety check, voice and model as Step 2 above) | `narration.txt`, `voices\01.mp3` |
 | 3 | User adds a marker line, then says "generate video prompts" | Splits narration into N ~10 s clips as the marker says, English prompts, no on-screen text, no gore | `video_prompts.txt` |
-| 4 | "step 4" | Generates clips in Firefly with the settings table above, using 4 tabs in parallel | `video_clips\Clip NN.mp4` |
+| 4 | "step 4" | Generates clips in Firefly with the short-video settings below, using 4 tabs in parallel | `video_clips\Clip NN.mp4` |
 
 Step 3 for shorts: the user adds one marker line at the end of the script text in `youtube_short_script.txt` (before DESCRIPTION), e.g.
 
@@ -118,11 +118,14 @@ Step 3 for shorts: the user adds one marker line at the end of the script text i
 
 - The number = how many clips to make (N); the time = the audio length note (not narrated). Spelling variations are fine.
 - Split the narration into exactly N clips at sentence boundaries, in order. Numbering starts at Clip 01.
-- Do not generate prompts until the marker exists. Same prompt style and `Done up to: ... Next clip number: NN` header as the long-video Step 3.
+- Do not generate prompts until the marker exists. Same prompt style and `Done up to: ... Next clip number: NN` header as the long-video Step 3,
+  but start each prompt with "Vertical 9:16, 4K" (shorts are generated vertically).
 
 Step 4 for shorts:
-1. Runway Gen-4.5 only supports 16:9, so replace "Vertical 9:16, 4K" with "Widescreen 16:9" when pasting prompts. The user crops to 9:16 while editing.
-2. Create `video_clips\` first. Open 4 tabs (one clip per tab; close any stray blank tab) and set Runway Gen-4.5 and 10 seconds in each. Paste the prompt and Generate.
+1. Shorts use their own Firefly settings: Model **Ray3.14** (not "Ray3.14 HDR"), Resolution **720p**, Aspect ratio
+   **Vertical (9:16)**, **24 FPS**, Duration **10 seconds**. Ray3.14 has no Seed box. Older prompts that start with
+   "16:9" are pasted as "Vertical 9:16".
+2. Create `video_clips\` first. Open 4 tabs (one clip per tab; close any stray blank tab) and set the settings above in each. Paste the prompt and Generate.
 3. Wait about 2.5 minutes, then in each finished tab: download, move/rename the newest `Downloads\Firefly*.mp4` to `video_clips\Clip NN.mp4`, verify the file exists, and **only then delete the generated video in Firefly**.
 4. A failed clip is retried with the same prompt. Start the next unassigned clip in the freed tab. Finish when every clip exists.
 5. Compare the audio length with the total clip length and tell the user if more clips are needed.
@@ -152,7 +155,8 @@ Safety rules built in:
 - ElevenLabs: nothing is generated unless the workspace is **invent's Workspace**, the voice is **my voice 1**, the
   model is **Eleven v4**, and the editor holds exactly the section's text. Generate is clicked once per section; if
   the audio cannot be saved afterwards, audio stops (no automatic retry, so credits are not spent twice).
-- Firefly: each clip starts from a clean page with the Step 4 settings. A failed clip is retried up to 5 times.
+- Firefly: each clip starts from a clean page with the settings for its kind of video (long: the Step 4 table;
+  short: Ray3.14, Vertical 9:16; both are in `config.py`). A failed clip is retried up to 5 times.
   The downloaded file name is checked against the prompt before it is saved, then the video is deleted in Firefly.
 - Signed out of a site: that step stops with a message; run `python run.py login`, sign in, start again.
 

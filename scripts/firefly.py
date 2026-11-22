@@ -27,14 +27,24 @@ def open_tabs(context, count) -> list[Tab]:
     return [Tab(page, number) for number, page in enumerate(pages[:count], start=1)]
 
 
+SELECTED_JS = "picker => picker.selectedItem ? picker.selectedItem.itemText.trim() : ''"
+
+
 def choose(page, picker_name, value) -> None:
+    """Set a settings picker to the option named exactly `value` ("Ray3.14" must never select "Ray3.14 HDR")."""
     picker = page.get_by_role("combobox", name=picker_name)
-    if value in picker.aria_snapshot():
+    if picker.evaluate(SELECTED_JS) == value:
         return
+    options = picker.get_by_role("option")   # this picker's list only; the previous picker's may still be closing
     picker.click()
-    page.get_by_role("option").filter(has_text=value).first.click()
+    options.first.wait_for()
+    names = options.evaluate_all("items => items.map(item => item.itemText.trim())")
+    if value not in names:
+        page.keyboard.press("Escape")
+        raise RuntimeError(f"{picker_name} has no option '{value}' (it offers {names})")
+    options.nth(names.index(value)).click()
     for _ in range(20):
-        if value in picker.aria_snapshot():
+        if picker.evaluate(SELECTED_JS) == value and options.count() == 0:   # chosen, and the list has closed
             return
         page.wait_for_timeout(500)
     raise RuntimeError(f"Could not set {picker_name} to {value}")
@@ -79,9 +89,11 @@ def prepare(tab: Tab, context) -> None:
 
     page.wait_for_timeout(config.FIREFLY_SETTLE * 1000)   # Firefly puts back the tab's last prompt, seed and videos
     remove_videos(page)
-    for picker_name, value in config.FIREFLY_SETTINGS.items():
+    for picker_name, value in config.FIREFLY_SETTINGS[job.topic.kind].items():
         choose(page, picker_name, value)
-    page.get_by_role("textbox", name="Seed").fill("")
+    seed = page.get_by_role("textbox", name="Seed")
+    if seed.count():                          # not every model has a seed (Ray3.14 does not)
+        seed.fill("")
     prompt.fill(job.prompt)
     if prompt.input_value() != job.prompt:
         raise RuntimeError("The Prompt box does not hold the full prompt")

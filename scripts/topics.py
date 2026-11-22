@@ -6,8 +6,9 @@ from pathlib import Path
 import config
 
 CLIP_HEADER = re.compile(r"^\W*Clip\s+(\d+)\b", re.IGNORECASE)
-# Clip-count markers such as "6 scirtps brake here - time 4:40" are notes for Step 3 and are never narrated.
-MARKER_LINE = re.compile(r"(?im)^[ \t]*\d+[ \t]+s\w*[ \t]+br\w*[ \t]+here\b[^\r\n]*\r?$")
+# Clip-count markers such as "6 scirtps brake here - time 4:40" or just "4 scritps" (any spelling of
+# "scripts") are notes for Step 3 and are never narrated.
+MARKER_LINE = re.compile(r"(?im)^[ \t]*\d+[ \t]+sc[ript]{3,6}s\b[^\r\n]*\r?$")
 SECTION_BREAK = re.compile(r"(?m)^\s*-{5,}\s*$")
 
 
@@ -107,9 +108,17 @@ def parse_prompts(path: Path) -> dict[int, str]:
     return prompts
 
 
-def firefly_prompt(prompt: str) -> str:
-    # Runway Gen-4.5 only makes 16:9, so vertical prompts are generated wide and cropped while editing.
-    return re.sub(r"\bVertical 9:16\b", "Widescreen 16:9", prompt)
+ASPECT_IN_PROMPT = re.compile(r"(?:\b(?:Vertical|Widescreen) )?\b(9:16|16:9)\b")
+
+
+def firefly_prompt(prompt: str, kind: str) -> str:
+    """Make an aspect ratio named in the prompt agree with the Firefly setting for this kind of video.
+
+    Most short-video prompts were written as "16:9, 4K, ..." and are generated vertically.
+    """
+    label = config.FIREFLY_SETTINGS[kind]["Aspect ratio"].replace("(", "").replace(")", "")   # "Vertical 9:16"
+    ratio = label.split()[-1]
+    return ASPECT_IN_PROMPT.sub(lambda found: found.group(0) if found.group(1) == ratio else label, prompt)
 
 
 def split_script(text: str) -> list[str]:
@@ -122,7 +131,7 @@ def pending_clips(topic: Topic) -> list[ClipJob]:
     prompts_file = topic.path / "video_prompts.txt"
     if not prompts_file.is_file():
         return []
-    jobs = [ClipJob(topic, number, firefly_prompt(prompt))
+    jobs = [ClipJob(topic, number, firefly_prompt(prompt, topic.kind))
             for number, prompt in sorted(parse_prompts(prompts_file).items())]
     return [job for job in jobs if not job.target.exists()]
 
@@ -135,7 +144,8 @@ def audio_sections(topic: Topic) -> dict[int, str]:
     """{section number: narration text} for a topic."""
     if topic.kind == "short":
         narration = topic.path / "narration.txt"
-        text = MARKER_LINE.sub("", read_text(narration)).strip() if narration.is_file() else ""
+        # A short is one audio file, so separator lines are dropped too, not treated as section breaks.
+        text = "\n".join(split_script(read_text(narration))) if narration.is_file() else ""
         return {1: text} if text else {}
     # Once a long video is split, sections\NN.txt decide what is narrated. script.txt is often edited
     # afterwards (clip markers, merged parts), and re-splitting it would ask for audio that already exists.

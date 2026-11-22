@@ -21,12 +21,21 @@ LOCK_PORT = 9334                 # held while run.py is working, so two runs can
 # ---- Step 4: Adobe Firefly video clips ----
 FIREFLY_URL = "https://firefly.adobe.com/generate/video"
 FIREFLY_TABS = 5
-FIREFLY_SETTINGS = {             # picker label -> value, applied in this order (Duration resets when Model changes)
-    "Model": "Runway Gen-4.5",
-    "Resolution": "720p",
-    "Aspect ratio": "Widescreen (16:9)",
-    "Frames per second": "24 FPS",
-    "Duration": "10 seconds",
+FIREFLY_SETTINGS = {             # kind of video -> picker label -> exact option name, applied in this order
+    "long": {                    # (the other pickers reset when Model changes)
+        "Model": "Runway Gen-4.5",
+        "Resolution": "720p",
+        "Aspect ratio": "Widescreen (16:9)",
+        "Frames per second": "24 FPS",
+        "Duration": "10 seconds",
+    },
+    "short": {
+        "Model": "Ray3.14",
+        "Resolution": "720p",
+        "Aspect ratio": "Vertical (9:16)",
+        "Frames per second": "24 FPS",
+        "Duration": "10 seconds",
+    },
 }
 FIREFLY_SETTLE = 5               # seconds after loading, while Firefly restores the tab's previous state
 FIREFLY_POLL = 10                # seconds between "is it done?" checks
