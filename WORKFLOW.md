@@ -129,6 +129,38 @@ Step 4 for shorts:
 
 ---
 
+# Python automation (Steps 2 and 4 without Copilot)
+
+Scripts: `D:\youtube\workflow\yt-workflow\scripts\`. Only `run.py` is run; all settings (tabs, model, voice,
+workspace, timeouts) are in `config.py`. Steps 1 and 3 (writing the script and the video prompts) still need Copilot.
+
+The scripts control the real Google Chrome through Playwright. Chrome does not allow this on the everyday profile,
+so they use their own profile in `D:\youtube\workflow\yt-workflow\chrome-profile` ("automation Chrome"). Sign in
+there once. That folder holds the signed-in sessions, so it is in `.gitignore` (with `downloads\` and `logs\`) and
+must never be committed.
+
+Commands and options: [README.md](README.md). `python run.py audio` is Step 2 and `python run.py clips` is Step 4.
+
+How it decides what to do:
+- A voice or clip is "missing" when its file does not exist (`voices\NN.mp3`, `video_clips\Clip NN.mp4`). Finished
+  files are never generated again, so a stopped or crashed run continues where it left off.
+- Clips come from `video_prompts.txt`. Short-video audio comes from `narration.txt`, long-video audio from
+  `sections\NN.txt` (split from `script.txt` the first time). Marker lines ("N scirtps brake here") are never narrated.
+- To re-split a long script that changed before its audio was finished, delete the `sections\` folder first.
+
+Safety rules built in:
+- ElevenLabs: nothing is generated unless the workspace is **invent's Workspace**, the voice is **my voice 1**, the
+  model is **Eleven v4**, and the editor holds exactly the section's text. Generate is clicked once per section; if
+  the audio cannot be saved afterwards, audio stops (no automatic retry, so credits are not spent twice).
+- Firefly: each clip starts from a clean page with the Step 4 settings. A failed clip is retried up to 5 times.
+  The downloaded file name is checked against the prompt before it is saved, then the video is deleted in Firefly.
+- Signed out of a site: that step stops with a message; run `python run.py login`, sign in, start again.
+
+Log: `D:\youtube\workflow\yt-workflow\logs\automation.log`. Windows is kept awake while `run.py` is running.
+Setup on a new PC: install Python 3.12, then `python -m pip install -r requirements.txt` (no `playwright install`).
+
+---
+
 ## Shared assets (`D:\youtube\assets`)
 - `logo.jpg`, `subscribe_overlay.png`, `subscribe_ad.mp4`
 

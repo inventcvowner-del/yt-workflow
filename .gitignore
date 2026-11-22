@@ -1,0 +1,7 @@
+# Never commit these: chrome-profile holds the signed-in ElevenLabs and Adobe sessions.
+chrome-profile/
+downloads/
+logs/
+
+__pycache__/
+*.pyc
