@@ -43,6 +43,27 @@ FIREFLY_TIMEOUT = 15 * 60        # give up on one generation after this long, th
 FIREFLY_MAX_ATTEMPTS = 5         # per clip, before it is skipped until the next pass
 FIREFLY_RETRY_PAUSE = 30         # seconds a tab rests after a failure
 
+# ---- Edit: Adobe Premiere Pro (after the clips are generated) ----
+ADOBE_DIR = Path(r"C:\Program Files\Adobe")     # the newest "Adobe Premiere Pro <year>" folder in here is used
+PREMIERE_PROJECT = "editing.prproj"             # the project saved in the topic folder
+PREMIERE_SEQUENCE = "Final"
+PREMIERE_FRAME = {                              # kind of video -> frame size of the sequence and of the export.
+    "short": (1080, 1920),                      # The 720p clips are scaled up until they fill it; what sticks out
+    "long": (3840, 2160),                       # is cropped.
+}
+PREMIERE_LOGO = ROOT / "assets" / "logo_round.png"   # shown over the whole video, bottom right; None for no logo. It is
+                                                # logo.jpg cut round on a transparent background, and must be a PNG.
+PREMIERE_LOGO_LAYOUT = {                        # kind of video -> (logo width, gap to the right edge, gap to the
+    "short": (0.15, 0.15, 0.04),                # bottom edge), as parts of the frame's width, width and height. The
+    "long": (0.05, 0.01, 0.015),                # gap on the right of a short keeps the logo clear of the Shorts buttons.
+}
+# Export preset, inside the Premiere folder: "Match Source - Adaptive High Bitrate" (H.264). It exports at the
+# sequence's frame size. An absolute path to an .epr of your own works too.
+PREMIERE_PRESET = r"MediaIO\systempresets\4E49434B_48323634\01 - Match Source - High bitrate.epr"
+FINAL_FILE = "final.mp4"                        # the export, in the topic folder (the upload step looks for it)
+PREMIERE_STALL_TIMEOUT = 10 * 60 # Premiere is stopped when it has not finished and the export has not grown for this long
+PREMIERE_QUIT_WAIT = 60          # seconds Premiere gets to close itself after a topic
+
 # ---- Step 2: ElevenLabs audio ----
 ELEVEN_URL = "https://elevenlabs.io/app/speech-synthesis/text-to-speech"
 ELEVEN_WORKSPACE = "invent's Workspace"   # safety check: nothing is generated in any other workspace
@@ -81,7 +102,7 @@ YOUTUBE_VISIBILITY = "Public"    # only used when RELEASE_FILE is None: Private,
 YOUTUBE_MADE_FOR_KIDS = False
 # Studio's "AI use" and "Paid promotion" questions are left alone. Only if Studio refuses to continue without an
 # answer is "No" chosen.
-UPLOAD_SETTLE = 120              # a Final.mp4 changed less than this many seconds ago may still be exporting
+UPLOAD_SETTLE = 120              # a final.mp4 changed less than this many seconds ago may still be exporting
 YOUTUBE_UPLOAD_TIMEOUT = 8 * 60 * 60   # one video from start to scheduled (a 3 GB long video takes an hour or more)
 YOUTUBE_STALL_TIMEOUT = 20 * 60        # give up when the upload percentage has not moved for this long
 YOUTUBE_MAX_ATTEMPTS = 3         # tries to open the upload dialog and hand over the file (nothing is uploaded before that)

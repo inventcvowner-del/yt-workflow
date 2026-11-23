@@ -41,12 +41,16 @@ Generate clips one by one (Step 4 loop): generate prompt NN, check every 10s, do
 
 Generate ALL clips (unlimited plan): check every 10s, download as 'Clip NN.mp4', delete in Firefly, retry failed ones, continue to the end.
 
+## Edit in Premiere (after Step 4)
+Not a Copilot step: when a topic has all its clips and voices, close Premiere and run `run edit` (see
+[README.md](README.md)). It builds `editing.prproj` and exports `final.mp4`.
+
 ## Step 5. Thumbnail in ChatGPT
 Not a Copilot step: once a topic folder has `youtube_title_description.txt`, run `run thumbnails` (see
 [README.md](README.md)). It asks ChatGPT for a 9:16 (short) or 16:9 (long) thumbnail and saves `thumbnail.png`.
 
 ## Step 6. Upload to YouTube
-Not a Copilot step: put `Final.mp4`, `thumbnail.png` and `youtube_title_description.txt` in the topic folder and run
+Not a Copilot step: put `final.mp4`, `thumbnail.png` and `youtube_title_description.txt` in the topic folder and run
 `run upload` (see [README.md](README.md)). To have Copilot write the title and description file:
 ```
 Write youtube_title_description.txt for "<topic>" in the layout of WORKFLOW.md step 6 (TITLE, DESCRIPTION, TAGS).

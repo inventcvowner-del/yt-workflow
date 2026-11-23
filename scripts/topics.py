@@ -1,4 +1,4 @@
-"""Finds topic folders and works out which voices, clips and uploads are still missing."""
+"""Finds topic folders and works out which voices, clips, edits, thumbnails and uploads are still missing."""
 import json
 import logging
 import re
@@ -23,6 +23,7 @@ THUMBNAIL_NAME = re.compile(r"th\w*nail", re.IGNORECASE)   # also matches the "t
 THUMBNAIL_SUFFIXES = {".png", ".jpg", ".jpeg"}
 TITLE_LIMIT, DESCRIPTION_LIMIT, TAGS_LIMIT = 100, 5000, 500   # YouTube's limits, in characters
 ORDER_PREFIX = re.compile(r"^\s*(\d+)\.\s+")   # topic folders are numbered to keep the videos in order: "3. graphene"
+CLIP_FILE = re.compile(r"^Clip\s*(\d+)\.mp4$", re.IGNORECASE)   # video_clips\Clip 07.mp4
 
 
 def plain_name(name: str) -> str:
@@ -81,6 +82,21 @@ class AudioJob:
 
 
 @dataclass(frozen=True)
+class EditJob:
+    topic: Topic
+    clips: tuple[Path, ...]     # in the order they are placed
+    voices: tuple[Path, ...]
+
+    @property
+    def target(self) -> Path:
+        return self.topic.path / config.FINAL_FILE
+
+    @property
+    def label(self) -> str:
+        return f"{self.topic.label} edit"
+
+
+@dataclass(frozen=True)
 class ThumbnailJob:
     topic: Topic
     title: str
@@ -125,6 +141,12 @@ def find_topics(kinds=("short", "long"), only=None) -> list[Topic]:
             if path.is_dir() and (only is None or only.lower() in (path.name.lower(), plain_name(path.name).lower())):
                 topics.append(Topic(kind, path))
     return topics
+
+
+def find_numbered(kind: str, number: int) -> list[Topic]:
+    """The topic folders of one kind with this order number: short video 11 is '11. ferrofluid'."""
+    return [topic for topic in find_topics((kind,))
+            if (match := ORDER_PREFIX.match(topic.name)) and int(match.group(1)) == number]
 
 
 def read_text(path: Path) -> str:
@@ -233,10 +255,56 @@ def newest(files: list[Path]) -> Path | None:
 
 
 def find_final_video(folder: Path) -> Path | None:
-    """Final.mp4, or else the newest final*.mp4 (older folders have names like 'final video.mp4' and 'final_1.mp4')."""
+    """final.mp4, or else the newest final*.mp4 (older folders have names like 'final video.mp4' and 'final_1.mp4')."""
     videos = [f for f in folder.iterdir()
               if f.is_file() and f.suffix.lower() == ".mp4" and f.stem.strip().lower().startswith("final")]
     return newest([f for f in videos if f.stem.strip().lower() == "final"] or videos)
+
+
+def clip_files(topic: Topic) -> list[Path]:
+    """video_clips\\Clip NN.mp4 in number order."""
+    folder = topic.path / "video_clips"
+    found = [(int(match.group(1)), f) for f in (folder.iterdir() if folder.is_dir() else [])
+             if f.is_file() and (match := CLIP_FILE.match(f.name))]
+    return [f for _, f in sorted(found)]
+
+
+def voice_files(topic: Topic) -> list[Path]:
+    """voices\\NN.mp3 in number order."""
+    return sorted((f for f in (topic.path / "voices").glob("*.mp3") if f.stem.isdigit()), key=lambda f: int(f.stem))
+
+
+def edit_blockers(topic: Topic) -> list[str]:
+    """Why a topic is not edited in Premiere. Empty when it is ready.
+
+    A topic is edited when every clip and voice it asks for exists and it has no final video, no Premiere project
+    (one made by hand is never touched) and no youtube_upload.json.
+    """
+    if (topic.path / UPLOAD_RECORD).exists():
+        return ["already uploaded (youtube_upload.json exists)"]
+    blockers = []
+    video = find_final_video(topic.path)
+    if video is not None:
+        blockers.append(f"already has a final video ({video.name})")
+    projects = sorted(topic.path.glob("*.prproj"))
+    if projects:
+        blockers.append(f"already has a Premiere project ({projects[0].name}); delete it to edit again")
+    missing_clips, missing_voices = len(pending_clips(topic)), len(pending_audio(topic))
+    if missing_clips:
+        blockers.append(f"{missing_clips} clips are still missing")
+    elif not clip_files(topic):
+        blockers.append("no clips in video_clips")
+    if missing_voices:
+        blockers.append(f"{missing_voices} voices are still missing")
+    elif not voice_files(topic):
+        blockers.append("no voices")
+    return blockers
+
+
+def pending_edits(topic: Topic) -> list[EditJob]:
+    if edit_blockers(topic):
+        return []
+    return [EditJob(topic, tuple(clip_files(topic)), tuple(voice_files(topic)))]
 
 
 def find_thumbnail(folder: Path) -> Path | None:
@@ -319,7 +387,7 @@ def pending_thumbnails(topic: Topic) -> list[ThumbnailJob]:
 def upload_blockers(topic: Topic) -> list[str]:
     """Why a topic's video cannot be uploaded yet. Empty when it is ready.
 
-    A video is uploaded only when its folder holds all three of Final.mp4, a thumbnail and
+    A video is uploaded only when its folder holds all three of final.mp4, a thumbnail and
     youtube_title_description.txt, and has no youtube_upload.json (that file marks it as uploaded).
     """
     if (topic.path / UPLOAD_RECORD).exists():
@@ -327,7 +395,7 @@ def upload_blockers(topic: Topic) -> list[str]:
     blockers = []
     video = find_final_video(topic.path)
     if video is None:
-        blockers.append("no Final.mp4")
+        blockers.append("no final.mp4")
     elif time.time() - video.stat().st_mtime < config.UPLOAD_SETTLE:
         blockers.append(f"{video.name} changed a moment ago and may still be exporting")
     if find_thumbnail(topic.path) is None:

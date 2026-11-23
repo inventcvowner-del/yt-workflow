@@ -134,11 +134,53 @@ Step 4 for shorts:
 
 ---
 
+# Edit and export in Premiere (short and long videos, after Step 4)
+
+Done by `python run.py edit` (no Copilot). A topic is edited when every clip of `video_prompts.txt` and every voice
+exists and its folder has no final video (`final*.mp4`), no Premiere project (`*.prproj`) and no `youtube_upload.json`.
+
+Premiere takes a script only when it is started with one, so the step starts Premiere itself, once per topic, and
+Premiere closes itself when the topic is done. **Close Premiere before running the step.** If Premiere is open the step
+stops with a message and touches nothing.
+
+What the script (`scripts\premiere.jsx`) does in Premiere:
+1. Creates `editing.prproj` in the topic folder and imports the clips into a bin `video_clips` and the voices into a bin
+   `voices`.
+2. Makes the sequence `Final` from the first clip, so it has the clips' 24 fps, and sets its frame size:
+   **1080 x 1920** (9:16) for a short video, **3840 x 2160** (4K) for a long one.
+3. Places `Clip 01, 02, ...` one after another on V1 and `voices\01, 02, ...` one after another on the first free audio
+   track. Clips placed by a script keep the sequence settings; Premiere does not ask about a clip that does not match.
+4. Cuts the longer side at its end. Clips longer than the voices are trimmed to the frame in which the voice ends.
+   Voices longer than the clips are cut at the end of the last clip, however much that is; the log then warns how
+   many seconds of narration were lost.
+5. Scales every clip until it fills the frame (720 x 1280 to 150 %, 1280 x 720 to 300 %). A clip of another shape is
+   cropped at the sides or at the top and bottom. The clips are 720p, so the 4K picture is an upscale.
+6. Puts the channel logo (`D:\youtube\assets\logo_round.png`) on V2 for the whole video, bottom right. `PREMIERE_LOGO_LAYOUT`
+   holds its width and its gaps to the right and bottom edges as parts of the frame: a short gets a logo 15 % of the
+   frame wide (162 px), 15 % in from the right so the Shorts buttons do not cover it; a long video gets one 5 % wide
+   (192 px) in the corner. `PREMIERE_LOGO = None` leaves the logo out.
+7. Saves the project and exports with the preset "Match Source - Adaptive High Bitrate" (H.264, about 16 Mbps for a
+   short and 55-65 Mbps for 4K).
+
+The export is written as `_export.mp4`. Its frame size and length are checked, and only then is it renamed to
+`final.mp4`, the name Step 6 waits for. Step 6 leaves a `final.mp4` alone for its first 2 minutes, so `run all` uploads
+a video it has just edited on its next pass (`--watch`) or the next time it is run.
+
+If Premiere reports an error, or has neither finished nor made the export grow for 10 minutes (a dialog may be waiting;
+Premiere is then stopped), the project and the unfinished export are removed from the topic folder. That topic is tried
+again when its clips or voices change, or when `run.py` is started again. To edit a topic again, delete its
+`editing.prproj` and `final.mp4`. A project made by hand is never replaced: a folder with any `.prproj` is skipped.
+
+Frame sizes, the logo, the project and export names, the preset and the time limits are in `config.py`
+(`PREMIERE_...`, `FINAL_FILE`).
+
+---
+
 # Step 5. Thumbnail in ChatGPT (short and long videos)
 
 Done by `python run.py thumbnails` (no Copilot). A thumbnail is made for every topic folder that has
 `youtube_title_description.txt`, no thumbnail yet (no PNG/JPEG named like "thumbnail") and no `youtube_upload.json`
-(a video that is already on YouTube keeps its thumbnail). It does not wait for `Final.mp4`.
+(a video that is already on YouTube keeps its thumbnail). It does not wait for `final.mp4`.
 
 Every request goes into one ChatGPT chat (`CHATGPT_URL` in `config.py`), in the automation Chrome:
 1. The channel logo (`D:\youtube\assets\logo.jpg`, `THUMBNAIL_ATTACHMENTS`) is attached, and the title and description
@@ -161,12 +203,12 @@ Done by `python run.py upload` (no Copilot). A video is ready when its topic fol
 
 | File | Name | Notes |
 |---|---|---|
-| Final video | `Final.mp4` | Older names such as `final video.mp4` or `final_1.mp4` work too (the newest `final*.mp4` is used). |
+| Final video | `final.mp4` | Made by the edit step, or exported by hand. Older names such as `final video.mp4` or `final_1.mp4` work too (the newest `final*.mp4` is used). |
 | Thumbnail | `thumbnail.png` (or `.jpg`) | Made by Step 5. Any PNG/JPEG whose name starts like "thumbnail" (the typo `thambnail` also works). |
 | Title, description, tags | `youtube_title_description.txt` | Layout below. |
 
 A folder that lacks one of them is skipped, and so is a folder that already has `youtube_upload.json`.
-`run status --topic "<topic>"` says what is missing. A `Final.mp4` changed in the last 2 minutes is treated as still
+`run status --topic "<topic>"` says what is missing. A `final.mp4` changed in the last 2 minutes is treated as still
 exporting.
 
 `youtube_title_description.txt` layout (what the upload reads):
@@ -190,7 +232,7 @@ The older long-video layout (`TITLE OPTIONS (pick one)` with numbered lines) als
 A file that breaks a limit is skipped with a warning in the log.
 
 What the upload does in YouTube Studio (channel `UCqLtH-2qyKDNW3NPI4gM_pg`, in the automation Chrome):
-1. Opens Upload videos, hands over `Final.mp4`, then sets the title, description, thumbnail, "not made for kids" and tags.
+1. Opens Upload videos, hands over `final.mp4`, then sets the title, description, thumbnail, "not made for kids" and tags.
    Playlist, language, category and comments stay at the channel defaults. Studio's "AI use" and "Paid promotion"
    questions are left alone; only if Studio refuses to continue without an answer is "No" chosen.
 2. Waits until the upload is finished **and Studio's checks say "No issues found"** (a long video takes an hour or more).
@@ -210,7 +252,7 @@ long videos) have such a file with `"status": "published"`; make one the same wa
 
 ---
 
-# Python automation (Steps 2, 4, 5 and 6 without Copilot)
+# Python automation (Steps 2, 4, the edit, 5 and 6 without Copilot)
 
 Scripts: `D:\youtube\workflow\yt-workflow\scripts\`. Only `run.py` is run; all settings (tabs, model, voice,
 workspace, timeouts) are in `config.py`. Steps 1 and 3 (writing the script and the video prompts) still need Copilot.
@@ -218,10 +260,10 @@ workspace, timeouts) are in `config.py`. Steps 1 and 3 (writing the script and t
 The scripts control the real Google Chrome through Playwright. Chrome does not allow this on the everyday profile,
 so they use their own profile in `D:\youtube\workflow\yt-workflow\chrome-profile` ("automation Chrome"). Sign in
 there once. That folder holds the signed-in sessions, so it is in `.gitignore` (with `downloads\` and `logs\`) and
-must never be committed.
+must never be committed. The edit step does not use Chrome: it starts Adobe Premiere.
 
 Commands and options: [README.md](README.md). `python run.py audio` is Step 2, `python run.py clips` is Step 4,
-`python run.py thumbnails` is Step 5 and `python run.py upload` is Step 6.
+`python run.py edit` is the edit in Premiere, `python run.py thumbnails` is Step 5 and `python run.py upload` is Step 6.
 
 How it decides what to do:
 - A voice or clip is "missing" when its file does not exist (`voices\NN.mp3`, `video_clips\Clip NN.mp4`). Finished
@@ -229,9 +271,11 @@ How it decides what to do:
 - Clips come from `video_prompts.txt`. Short-video audio comes from `narration.txt`, long-video audio from
   `sections\NN.txt` (split from `script.txt` the first time). Marker lines ("N scirtps brake here") are never narrated.
 - To re-split a long script that changed before its audio was finished, delete the `sections\` folder first.
+- A topic is "waiting to be edited" when all its clips and voices exist and its folder has no final video, no Premiere
+  project and no `youtube_upload.json`.
 - A thumbnail is "missing" when the folder has `youtube_title_description.txt` but no thumbnail and no
   `youtube_upload.json` (Step 5).
-- A video is "waiting to upload" when its folder has `Final.mp4`, a thumbnail and `youtube_title_description.txt` but no
+- A video is "waiting to upload" when its folder has `final.mp4`, a thumbnail and `youtube_title_description.txt` but no
   `youtube_upload.json` (Step 6).
 
 Safety rules built in:
@@ -241,6 +285,10 @@ Safety rules built in:
 - Firefly: each clip starts from a clean page with the settings for its kind of video (long: the Step 4 table;
   short: Ray3.14, Vertical 9:16; both are in `config.py`). A failed clip is retried up to 5 times.
   The downloaded file name is checked against the prompt before it is saved, then the video is deleted in Firefly.
+- Premiere: nothing is started while Premiere is open, and a folder that already has a Premiere project or a final
+  video is never edited. The project is only built in a Premiere that has no other project open. The export becomes
+  `final.mp4` only after its frame size and length have been checked; a failed run leaves no project and no export
+  behind. When voices are cut because the clips are shorter, the log warns how many seconds were lost.
 - ChatGPT: nothing is sent unless the thumbnail chat opens (a signed-out Chrome or a deleted chat stops the step). The
   request box is emptied first and must hold exactly the request before Send is clicked. Send is clicked once per
   thumbnail; if no image can be saved after that, thumbnails stop with a message that points at the chat (no automatic
@@ -265,6 +313,8 @@ Setup on a new PC: install Python 3.12, then `python -m pip install -r requireme
 
 ## Shared assets (`D:\youtube\assets`)
 - `logo.jpg` (also attached to every ChatGPT thumbnail request), `subscribe_overlay.png`, `subscribe_ad.mp4`
+- `logo_round.png`: `logo.jpg` cut round on a transparent background, the logo the edit step puts over every video.
+  Make it again from a new `logo.jpg` when the channel logo changes.
 
 ## Naming rules
 - Lowercase, underscores for files; zero-padded numbers (01, 02, ...).
@@ -272,7 +322,8 @@ Setup on a new PC: install Python 3.12, then `python -m pip install -r requireme
   separately, and the number is the order of the video: the order of `topics.txt` (Done first, then Pending). A new
   topic gets the next number.
 - The scripts handle the topics in number order (so uploads and release slots follow it: `2.` before `10.`), and a topic
-  can be named with or without its number (`--topic graphene` or `--topic "3. graphene"`).
+  can be named with or without its number (`--topic graphene` or `--topic "3. graphene"`), or by its number alone:
+  `run edit short-11` is `short videos\11. ferrofluid` and `run clips long-3` is `long videos\3. hepatitis virus`.
 - Close Premiere before renaming a topic folder that has a project open. The Premiere project that has media
   (`1. laparoscopic vs robotic surgery`) also stores relative paths, so Premiere should still find its media.
 
