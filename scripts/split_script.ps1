@@ -1,7 +1,13 @@
 param([Parameter(Mandatory = $true)][string]$Topic)
 
 # Splits script.txt into one text file per section (sections are separated by a line of dashes).
-$root = Join-Path "D:\youtube\long videos" $Topic
+# Topic folders are numbered in order ("3. hepatitis virus"); the topic is found by its name, with or without the number.
+$base = "D:\youtube\long videos"
+$number = '^\s*(\d+)\.\s+'
+$plain = $Topic -replace $number, ''
+$folder = Get-ChildItem -LiteralPath $base -Directory | Where-Object { ($_.Name -replace $number, '') -ieq $plain } | Select-Object -First 1
+if (-not $folder) { throw "There is no topic folder named '$Topic' in $base" }
+$root = $folder.FullName
 $out = Join-Path $root "sections"
 New-Item -ItemType Directory $out -Force | Out-Null
 

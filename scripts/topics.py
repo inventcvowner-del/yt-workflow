@@ -1,15 +1,39 @@
-"""Finds topic folders and works out which voices and clips are still missing."""
+"""Finds topic folders and works out which voices, clips and uploads are still missing."""
+import json
+import logging
 import re
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
 import config
+
+log = logging.getLogger("topics")
 
 CLIP_HEADER = re.compile(r"^\W*Clip\s+(\d+)\b", re.IGNORECASE)
 # Clip-count markers such as "6 scirtps brake here - time 4:40" or just "4 scritps" (any spelling of
 # "scripts") are notes for Step 3 and are never narrated.
 MARKER_LINE = re.compile(r"(?im)^[ \t]*\d+[ \t]+sc[ript]{3,6}s\b[^\r\n]*\r?$")
 SECTION_BREAK = re.compile(r"(?m)^\s*-{5,}\s*$")
+
+LISTING_FILE = "youtube_title_description.txt"
+UPLOAD_RECORD = "youtube_upload.json"    # written when an upload starts; its existence means "do not upload again"
+LISTING_HEADER = re.compile(r"^(OTHER TITLE OPTIONS|TITLE OPTIONS|TITLE|DESCRIPTION|TAGS|HASHTAGS)\b")
+THUMBNAIL_NAME = re.compile(r"th\w*nail", re.IGNORECASE)   # also matches the "thambnail" typo seen in a topic folder
+THUMBNAIL_SUFFIXES = {".png", ".jpg", ".jpeg"}
+TITLE_LIMIT, DESCRIPTION_LIMIT, TAGS_LIMIT = 100, 5000, 500   # YouTube's limits, in characters
+ORDER_PREFIX = re.compile(r"^\s*(\d+)\.\s+")   # topic folders are numbered to keep the videos in order: "3. graphene"
+
+
+def plain_name(name: str) -> str:
+    """A folder name without its order number: '3. graphene' -> 'graphene'."""
+    return ORDER_PREFIX.sub("", name)
+
+
+def order_key(name: str) -> tuple:
+    """Sort key for folder names: numbered folders in number order ('2. x' before '10. y'), then any others by name."""
+    match = ORDER_PREFIX.match(name)
+    return (0, int(match.group(1)), plain_name(name).lower()) if match else (1, 0, name.lower())
 
 
 @dataclass(frozen=True)
@@ -56,16 +80,49 @@ class AudioJob:
         return f"{self.topic.label} voice {self.number:02d}"
 
 
+@dataclass(frozen=True)
+class ThumbnailJob:
+    topic: Topic
+    title: str
+    description: str
+
+    @property
+    def target(self) -> Path:
+        return self.topic.path / config.THUMBNAIL_FILE
+
+    @property
+    def label(self) -> str:
+        return f"{self.topic.label} thumbnail"
+
+
+@dataclass(frozen=True)
+class UploadJob:
+    topic: Topic
+    video: Path
+    thumbnail: Path
+    title: str
+    description: str
+    tags: tuple[str, ...]
+
+    @property
+    def target(self) -> Path:
+        return self.topic.path / UPLOAD_RECORD
+
+    @property
+    def label(self) -> str:
+        return f"{self.topic.label} upload"
+
+
 def find_topics(kinds=("short", "long"), only=None) -> list[Topic]:
-    """Topic folders of the given kinds; `only` filters by folder name (case-insensitive)."""
+    """Topic folders of the given kinds in number order; `only` is a folder name, with or without its number."""
     folders = {"short": config.SHORTS_DIR, "long": config.LONGS_DIR}
     topics = []
     for kind in kinds:
         base = folders[kind]
         if not base.is_dir():
             continue
-        for path in sorted(base.iterdir()):
-            if path.is_dir() and (only is None or path.name.lower() == only.lower()):
+        for path in sorted(base.iterdir(), key=lambda folder: order_key(folder.name)):
+            if path.is_dir() and (only is None or only.lower() in (path.name.lower(), plain_name(path.name).lower())):
                 topics.append(Topic(kind, path))
     return topics
 
@@ -169,3 +226,139 @@ def save_sections(topic: Topic) -> None:
     folder.mkdir(exist_ok=True)
     for number, text in audio_sections(topic).items():
         (folder / f"{number:02d}.txt").write_text(text, encoding="utf-8-sig")
+
+
+def newest(files: list[Path]) -> Path | None:
+    return max(files, key=lambda f: f.stat().st_mtime, default=None)
+
+
+def find_final_video(folder: Path) -> Path | None:
+    """Final.mp4, or else the newest final*.mp4 (older folders have names like 'final video.mp4' and 'final_1.mp4')."""
+    videos = [f for f in folder.iterdir()
+              if f.is_file() and f.suffix.lower() == ".mp4" and f.stem.strip().lower().startswith("final")]
+    return newest([f for f in videos if f.stem.strip().lower() == "final"] or videos)
+
+
+def find_thumbnail(folder: Path) -> Path | None:
+    return newest([f for f in folder.iterdir()
+                   if f.is_file() and f.suffix.lower() in THUMBNAIL_SUFFIXES and THUMBNAIL_NAME.match(f.stem)])
+
+
+def parse_listing(path: Path) -> tuple[str, str, tuple[str, ...]]:
+    """Read youtube_title_description.txt into (title, description, tags). Raises ValueError if it cannot be used.
+
+    Shorts have a TITLE section. The older long-video layout has numbered TITLE OPTIONS, of which the first is used.
+    A separate HASHTAGS section is added to the end of the description.
+    """
+    sections: dict[str, list[str]] = {}
+    current = None
+    for line in read_text(path).splitlines():
+        header = LISTING_HEADER.match(line.strip())
+        if header:
+            current = header.group(1)
+            sections.setdefault(current, [])
+        elif current:
+            sections[current].append(line.rstrip())
+
+    title = next((line.strip() for line in sections.get("TITLE", []) if line.strip()), "")
+    if not title:
+        options = [line.strip() for line in sections.get("TITLE OPTIONS", []) if line.strip()]
+        title = re.sub(r"^\d+[.)]\s*", "", options[0]) if options else ""
+    description = "\n".join(sections.get("DESCRIPTION", [])).strip()
+    hashtags = " ".join(" ".join(sections.get("HASHTAGS", [])).split())
+    if hashtags and hashtags not in description:
+        description = f"{description}\n\n{hashtags}".strip()
+    tags = tuple(tag.strip() for tag in ",".join(sections.get("TAGS", [])).split(",") if tag.strip())
+
+    problems = []
+    if not title:
+        problems.append("no title (it needs a TITLE section)")
+    elif len(title) > TITLE_LIMIT:
+        problems.append(f"the title has {len(title)} characters, YouTube allows {TITLE_LIMIT}")
+    if not description:
+        problems.append("no description (it needs a DESCRIPTION section)")
+    elif len(description) > DESCRIPTION_LIMIT:
+        problems.append(f"the description has {len(description)} characters, YouTube allows {DESCRIPTION_LIMIT}")
+    if "<" in title + description or ">" in title + description:
+        problems.append("the title and description may not contain < or >")
+    if len(",".join(tags)) > TAGS_LIMIT:
+        problems.append(f"the tags have {len(','.join(tags))} characters, YouTube allows {TAGS_LIMIT}")
+    if problems:
+        raise ValueError(f"{path.name}: " + "; ".join(problems))
+    return title, description, tags
+
+
+def thumbnail_blockers(topic: Topic) -> list[str]:
+    """Why no thumbnail is made for a topic. Empty when it needs one.
+
+    A thumbnail is made when the folder holds youtube_title_description.txt, has no thumbnail yet and has no
+    youtube_upload.json (a video that is already on YouTube has its thumbnail there).
+    """
+    if (topic.path / UPLOAD_RECORD).exists():
+        return ["already uploaded (youtube_upload.json exists)"]
+    blockers = []
+    existing = find_thumbnail(topic.path)
+    if existing is not None:
+        blockers.append(f"already has a thumbnail ({existing.name})")
+    if not (topic.path / LISTING_FILE).is_file():
+        blockers.append(f"no {LISTING_FILE}")
+    return blockers
+
+
+def pending_thumbnails(topic: Topic) -> list[ThumbnailJob]:
+    if thumbnail_blockers(topic):
+        return []
+    try:
+        title, description, _ = parse_listing(topic.path / LISTING_FILE)
+    except ValueError as problem:
+        log.warning("%s: cannot make a thumbnail, %s", topic.label, problem)
+        return []
+    return [ThumbnailJob(topic, title, description)]
+
+
+def upload_blockers(topic: Topic) -> list[str]:
+    """Why a topic's video cannot be uploaded yet. Empty when it is ready.
+
+    A video is uploaded only when its folder holds all three of Final.mp4, a thumbnail and
+    youtube_title_description.txt, and has no youtube_upload.json (that file marks it as uploaded).
+    """
+    if (topic.path / UPLOAD_RECORD).exists():
+        return ["already uploaded (youtube_upload.json exists)"]
+    blockers = []
+    video = find_final_video(topic.path)
+    if video is None:
+        blockers.append("no Final.mp4")
+    elif time.time() - video.stat().st_mtime < config.UPLOAD_SETTLE:
+        blockers.append(f"{video.name} changed a moment ago and may still be exporting")
+    if find_thumbnail(topic.path) is None:
+        blockers.append("no thumbnail")
+    if not (topic.path / LISTING_FILE).is_file():
+        blockers.append(f"no {LISTING_FILE}")
+    return blockers
+
+
+def pending_uploads(topic: Topic) -> list[UploadJob]:
+    if upload_blockers(topic):
+        return []
+    try:
+        title, description, tags = parse_listing(topic.path / LISTING_FILE)
+    except ValueError as problem:
+        log.warning("%s: cannot upload, %s", topic.label, problem)
+        return []
+    return [UploadJob(topic, find_final_video(topic.path), find_thumbnail(topic.path), title, description, tags)]
+
+
+def read_upload_record(topic: Topic) -> dict | None:
+    """The upload record of a topic, {} when the file is empty or hand-made, None when there is none."""
+    record = topic.path / UPLOAD_RECORD
+    if not record.is_file():
+        return None
+    try:
+        return json.loads(read_text(record))
+    except ValueError:
+        return {}
+
+
+def write_upload_record(job: UploadJob, **fields) -> None:
+    record = {"title": job.title, "video": job.video.name, **fields}
+    job.target.write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")

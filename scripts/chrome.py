@@ -110,3 +110,20 @@ def store(file: Path, target: Path) -> None:
     shutil.move(str(file), str(target))
     if not target.is_file():
         raise RuntimeError(f"File was not saved: {target}")
+
+
+def attach_file(page, selector: str, path: Path) -> None:
+    """Choose a file in the page's <input type=file>, whatever its size.
+
+    Playwright's own set_input_files refuses files over 50 MB on this kind of connection, because it cannot tell that
+    Chrome runs on the same PC. Chrome only needs the path, so the path is handed over through the DevTools protocol.
+    """
+    session = page.context.new_cdp_session(page)
+    try:
+        found = session.send("Runtime.evaluate", {"expression": f"document.querySelector({json.dumps(selector)})"})
+        object_id = found["result"].get("objectId")
+        if object_id is None:
+            raise RuntimeError(f"The page has no file input matching {selector}")
+        session.send("DOM.setFileInputFiles", {"files": [str(path)], "objectId": object_id})
+    finally:
+        session.detach()

@@ -51,5 +51,40 @@ ELEVEN_MODEL = "Eleven v4"
 ELEVEN_TIMEOUT = 10 * 60
 ELEVEN_MAX_ATTEMPTS = 3          # tries to set up the page for one section (Generate is clicked once only)
 
+# ---- Step 5: ChatGPT thumbnails ----
+CHATGPT_URL = "https://chatgpt.com/c/6b045698-8154-83ee-800d-0975811b351d"   # the chat every thumbnail is asked for in
+THUMBNAIL_FILE = "thumbnail.png"            # name of the thumbnail in the topic folder
+THUMBNAIL_RATIO = {                         # kind of video -> aspect ratio asked for, and how it is described
+    "short": ("9:16", "vertical"),
+    "long": ("16:9", "horizontal"),
+}
+THUMBNAIL_RATIO_TOLERANCE = 0.05            # a thumbnail whose width/height differs more than this (5%) from the ratio is refused
+THUMBNAIL_ATTACHMENTS = [ROOT / "assets" / "logo.jpg"]   # images sent with every request; [] sends none
+THUMBNAIL_LOGO_NOTE = "The attached image is my channel logo: put it in the top-left corner."   # used when there are attachments
+THUMBNAIL_PROMPT = (                        # {logo} is THUMBNAIL_LOGO_NOTE and a line break, or nothing
+    "Create a YouTube thumbnail for the video below.\n"
+    "Aspect ratio: {ratio} ({shape}).\n"
+    "{logo}"
+    "Generate the image now; do not ask any questions.\n\n"
+    "Title: {title}\n\n"
+    "Description:\n{description}"
+)
+CHATGPT_TIMEOUT = 10 * 60        # an image takes about a minute; give up on one request after this long
+CHATGPT_MAX_ATTEMPTS = 3         # tries to set up and fill the request (nothing is generated before Send is clicked)
+
+# ---- Step 6: YouTube Studio upload ----
+YOUTUBE_CHANNEL_ID = "UCqLtH-2qyKDNW3NPI4gM_pg"   # safety check: nothing is uploaded unless Studio opens this channel
+YOUTUBE_STUDIO_URL = f"https://studio.youtube.com/channel/{YOUTUBE_CHANNEL_ID}"
+RELEASE_FILE = WORK_DIR / "release.txt"   # each video is scheduled into the next Pending slot of this plan (IST)
+SCHEDULE_LEAD = 30 * 60          # a slot must still be this many seconds away when the video is scheduled
+YOUTUBE_VISIBILITY = "Public"    # only used when RELEASE_FILE is None: Private, Unlisted or Public straight away
+YOUTUBE_MADE_FOR_KIDS = False
+# Studio's "AI use" and "Paid promotion" questions are left alone. Only if Studio refuses to continue without an
+# answer is "No" chosen.
+UPLOAD_SETTLE = 120              # a Final.mp4 changed less than this many seconds ago may still be exporting
+YOUTUBE_UPLOAD_TIMEOUT = 8 * 60 * 60   # one video from start to scheduled (a 3 GB long video takes an hour or more)
+YOUTUBE_STALL_TIMEOUT = 20 * 60        # give up when the upload percentage has not moved for this long
+YOUTUBE_MAX_ATTEMPTS = 3         # tries to open the upload dialog and hand over the file (nothing is uploaded before that)
+
 DOWNLOAD_TIMEOUT = 180           # seconds to wait for a clicked download to land on disk
 WATCH_INTERVAL = 5 * 60          # with --watch: seconds between scans for new work

@@ -1,6 +1,6 @@
 # Reference prompts (copy-paste to Copilot)
 
-Three steps. Replace `<topic>` with the topic name (folder in `D:\youtube\long videos\`).
+Three steps. Replace `<topic>` with the topic name (folder in `D:\youtube\long videos\`, with or without its number).
 Full rules: [WORKFLOW.md](WORKFLOW.md)
 
 ---
@@ -40,3 +40,14 @@ Open https://firefly.adobe.com/generate/video, set Runway Gen-4.5, 720p, 16:9, 2
 Generate clips one by one (Step 4 loop): generate prompt NN, check every 10s, download as video_clips\NN.mp4, delete it in Firefly, then go to the next.
 
 Generate ALL clips (unlimited plan): check every 10s, download as 'Clip NN.mp4', delete in Firefly, retry failed ones, continue to the end.
+
+## Step 5. Thumbnail in ChatGPT
+Not a Copilot step: once a topic folder has `youtube_title_description.txt`, run `run thumbnails` (see
+[README.md](README.md)). It asks ChatGPT for a 9:16 (short) or 16:9 (long) thumbnail and saves `thumbnail.png`.
+
+## Step 6. Upload to YouTube
+Not a Copilot step: put `Final.mp4`, `thumbnail.png` and `youtube_title_description.txt` in the topic folder and run
+`run upload` (see [README.md](README.md)). To have Copilot write the title and description file:
+```
+Write youtube_title_description.txt for "<topic>" in the layout of WORKFLOW.md step 6 (TITLE, DESCRIPTION, TAGS).
+```

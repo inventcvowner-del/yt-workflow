@@ -1,10 +1,12 @@
-"""Runs the audio (ElevenLabs) and video clip (Firefly) steps for every topic that still needs them.
+"""Runs the audio (ElevenLabs), clip (Firefly), thumbnail (ChatGPT) and upload (YouTube Studio) steps for every topic.
 
     python run.py login          open the automation Chrome to sign in (needed once)
     python run.py status         list what is still missing; generates nothing
     python run.py audio          generate the missing voices in ElevenLabs
     python run.py clips          generate the missing clips in Firefly
-    python run.py all            audio first, then clips
+    python run.py thumbnails     ask ChatGPT for the missing thumbnails (9:16 for shorts, 16:9 for long videos)
+    python run.py upload         upload finished videos to YouTube Studio, scheduled into the release plan
+    python run.py all            audio, then clips, then thumbnails, then uploads
 
 Options:
     --topic "folder name"        only this topic
@@ -23,16 +25,24 @@ from logging.handlers import RotatingFileHandler
 
 from playwright.sync_api import sync_playwright
 
+import chatgpt
 import chrome
 import config
 import elevenlabs
 import firefly
 import topics
+import youtube
 
 log = logging.getLogger("run")
 STEPS = {   # step name -> (finds the missing files of a topic, generates them)
     "audio": (topics.pending_audio, elevenlabs.run),
     "clips": (topics.pending_clips, firefly.run),
+    "thumbnails": (topics.pending_thumbnails, chatgpt.run),
+    "upload": (topics.pending_uploads, youtube.run),
+}
+BLOCKERS = {   # step name -> (why a topic is skipped by it, what the step is not doing for it)
+    "thumbnails": (topics.thumbnail_blockers, "making a thumbnail"),
+    "upload": (topics.upload_blockers, "uploading"),
 }
 
 
@@ -54,16 +64,34 @@ def pending(step, args) -> list:
     return [job for topic in selected_topics(args) for job in find(topic)]
 
 
+def step_notes(step, args) -> list[str]:
+    """Why selected videos are not handled by a step: an unfinished upload, or (with --topic) what is missing."""
+    notes = []
+    for topic in selected_topics(args):
+        if step == "upload":
+            record = topics.read_upload_record(topic)
+            if record is not None and record.get("status") == "started":
+                notes.append(f"{topic.label}: an upload was started but not finished, see {topics.UPLOAD_RECORD}")
+                continue
+        if args.topic and step in BLOCKERS and not STEPS[step][0](topic):
+            blockers, doing = BLOCKERS[step]
+            reasons = blockers(topic) or ["its listing file cannot be used (see the warning above)"]
+            notes.append(f"{topic.label}: not {doing}, " + "; ".join(reasons))
+    return notes
+
+
 def show_status(args) -> None:
     for step in STEPS:
         jobs = pending(step, args)
         print(f"{step}: {len(jobs)} pending")
         for job in jobs:
             print(f"   {job.label}")
+        for note in step_notes(step, args):
+            print(f"   ({note})")
 
 
 def login() -> None:
-    urls = [config.ELEVEN_URL, config.FIREFLY_URL]
+    urls = [config.ELEVEN_URL, config.FIREFLY_URL, config.CHATGPT_URL, config.YOUTUBE_STUDIO_URL]
     if not chrome.is_running():
         chrome.launch(urls)
     else:
@@ -73,8 +101,9 @@ def login() -> None:
                 host = url.split("/")[2]
                 if not any(host in page.url for page in context.pages):
                     context.new_page().goto(url)
-    print(f"The automation Chrome is open. Sign in to ElevenLabs ({config.ELEVEN_WORKSPACE}) and Adobe Firefly\n"
-          "in that window. It remembers the sign-in, so this is needed only once. Leave the window open.")
+    print(f"The automation Chrome is open. Sign in to ElevenLabs ({config.ELEVEN_WORKSPACE}), Adobe Firefly, ChatGPT\n"
+          f"and YouTube Studio (the Google account that owns channel {config.YOUTUBE_CHANNEL_ID}) in that window.\n"
+          "It remembers the sign-in, so this is needed only once. Leave the window open.")
 
 
 def keep_awake() -> None:
@@ -115,7 +144,7 @@ def work(steps, args) -> bool:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("command", choices=["login", "status", "audio", "clips", "all"])
+    parser.add_argument("command", choices=["login", "status", "audio", "clips", "thumbnails", "upload", "all"])
     parser.add_argument("--topic", help="only this topic (its folder name)")
     parser.add_argument("--kind", choices=["short", "long"], help="only short or only long videos")
     parser.add_argument("--watch", action="store_true", help="keep running and pick up new work")
@@ -137,7 +166,7 @@ def main() -> int:
     except OSError:
         sys.exit("run.py is already running in another window.")
     keep_awake()
-    steps = ["audio", "clips"] if args.command == "all" else [args.command]
+    steps = ["audio", "clips", "thumbnails", "upload"] if args.command == "all" else [args.command]
     try:
         return 0 if work(steps, args) else 1
     except KeyboardInterrupt:
