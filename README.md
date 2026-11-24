@@ -66,6 +66,10 @@ fine-tuned voice from `D:\youtube\TTS-Fine_tuning` instead of ElevenLabs, so `ru
 - Every file is transcribed with a Telugu Whisper and the log says how far it is from the text. Above 15% it says
   `CHECK ... listen to it`. Numbers written as digits (2.4, 1997) are spoken as words and raise the number without
   being mistakes.
+- `python scripts\numbers_to_words.py --from 18` lists how the digits in the not-yet-narrated sections of long videos
+  18 and up would be written as Telugu words (1954 -> పందొమ్మిది వందల యాభై నాలుగు, 5జీ -> ఫైవ్ జీ), in
+  `scripts\numbers_report.txt`; add `--apply` to change the files. Originals are copied to
+  `D:\youtube\workflow\backups` first, and sections that already have a voice are never touched.
 - The voice, model and these settings are under "Step 2 alternative" in `scripts\config.py`. Delete a voice file and
   run the command again to make it again; a section whose text changed is always made fresh.
 
