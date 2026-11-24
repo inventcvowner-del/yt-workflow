@@ -18,6 +18,7 @@ cd /d D:\youtube\workflow\yt-workflow
 | `run status` | Lists missing voices, clips, edits, thumbnails and uploads, followed by all the commands and options for reference. Generates and uploads nothing, so it is always safe. |
 | `run clips` | Generates all missing Firefly clips, 5 tabs at once. |
 | `run audio` | Generates all missing ElevenLabs voices, one after another. |
+| `run audio vast` | Generates all missing voices with your own fine-tuned voice on a Vast.ai GPU instead. See "Audio on Vast" below. |
 | `run edit` | Starts Premiere for every topic whose clips and voices are complete, builds `editing.prproj` and exports `final.mp4` (1080 x 1920 for shorts, 4K for long videos). Close Premiere first. |
 | `run thumbnails` | Asks ChatGPT for every missing thumbnail (9:16 for shorts, 16:9 for long videos) and saves it as `thumbnail.png` in the topic folder. |
 | `run upload` | Uploads every finished video to YouTube Studio and schedules it into the next free slot of `release.txt` (in this folder). |
@@ -34,7 +35,7 @@ Options (add to any command):
 
 | Option | What it does |
 |---|---|
-| `short-N` / `long-N` | Only this video, by its number: `run edit short-11` is `short videos\11. ferrofluid`, `run clips long-3` is `long videos\3. hepatitis virus`. Works with every command. Without it, a command handles all topics. |
+| `short-N` / `long-N` | Only this video, by its number: `run edit short-11` is `short videos\11. ferrofluid`, `run clips long-3` is `long videos\3. hepatitis virus`, `run audio vast long-12` is `long videos\12. lithium-ion battery`. Works with every command. Without it, a command handles all topics. |
 | `--topic "folder name"` | Only this topic, with or without its number, e.g. `--topic "quantum tunneling"` or `--topic "6. quantum tunneling"`. |
 | `--kind short` / `--kind long` | Only short videos or only long videos. |
 
@@ -42,6 +43,31 @@ Stop with Ctrl+C. Run the same command again to continue; files that already exi
 
 Topic folders are numbered (`3. graphene`, `4. liquid metal gallium`, ...; short and long videos separately) and the
 scripts handle them in number order, so uploads and release slots follow it. A new topic gets the next number.
+
+## Audio on Vast (`run audio vast`)
+
+`run audio vast` (or `run audio vast long-12`, `run audio vast short-7`) makes the same voice files as `run audio`
+(`voices\NN.mp3` from `sections\NN.txt` for a long video, `voices\01.mp3` from `narration.txt` for a short) with the
+fine-tuned voice from `D:\youtube\TTS-Fine_tuning` instead of ElevenLabs, so `run edit` uses them the same way.
+
+- **Start the Vast instance first** on https://cloud.vast.ai/instances/. The command does not rent, start or stop
+  instances. Stop the instance when you are done; GPU time is charged while it runs.
+- Its SSH address is `VAST_HOST` / `VAST_PORT` in `scripts\config.py`. After a stop and start it may change: the
+  instance card's >_ button shows `ssh -p PORT root@HOST` under "Direct ssh connect". If it cannot connect, the command
+  says so. The SSH key in `%USERPROFILE%\.ssh` must be added to the Vast account.
+- An instance that does not have the voice yet (a new one) is set up automatically the first time: the engine is
+  installed and the voice is rebuilt from `TTS-Fine_tuning\runs\suresh_s100\adapter_last.pt` (about 15 minutes).
+  Or set it up yourself on the instance with `D:\youtube\workflow\my-llm-tts-setup` (GitHub
+  `inventcvowner-del/my-llm-tts-setup`): `hf auth login`, then `bash my-llm-tts-setup/setup.sh`, which downloads the
+  voice from the private Hugging Face repo.
+- The texts go over as a UTF-8 file, the instance makes all voices in one background batch, and each mp3 is downloaded
+  as soon as it is ready (about 20 seconds per long-video section). Ctrl+C or a dropped connection loses nothing: the
+  batch keeps going on the instance, and running the command again picks up the finished files.
+- Every file is transcribed with a Telugu Whisper and the log says how far it is from the text. Above 15% it says
+  `CHECK ... listen to it`. Numbers written as digits (2.4, 1997) are spoken as words and raise the number without
+  being mistakes.
+- The voice, model and these settings are under "Step 2 alternative" in `scripts\config.py`. Delete a voice file and
+  run the command again to make it again; a section whose text changed is always made fresh.
 
 ## The page (`run ui`)
 

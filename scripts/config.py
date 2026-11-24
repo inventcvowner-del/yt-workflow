@@ -73,6 +73,26 @@ ELEVEN_MODEL = "Eleven v4"
 ELEVEN_TIMEOUT = 10 * 60
 ELEVEN_MAX_ATTEMPTS = 3          # tries to set up the page for one section (Generate is clicked once only)
 
+# ---- Step 2 alternative: your own fine-tuned voice on a Vast.ai GPU ("run audio vast") ----
+# Start the instance on https://cloud.vast.ai/instances/ first. Its SSH address is on the instance card (>_ button,
+# "Direct ssh connect": ssh -p PORT root@HOST); it can change when the instance is stopped and started again.
+# The SSH key in %USERPROFILE%\.ssh must be added to the Vast account. No passwords or tokens are kept here.
+VAST_HOST = "45.173.179.240"
+VAST_PORT = 4740
+VAST_DIR = "/workspace/tts"                  # project folder on the instance
+VAST_HF_HOME = "/workspace/.hf_home"         # model downloads on the instance
+VAST_RELEASE = "releases/maya2-suresh-s100"  # the voice model, inside VAST_DIR
+VAST_VOICE = "Suresh"
+VAST_SEED = 7                                # same seed for every section, so the voice stays the same
+VAST_CHECK = True                            # transcribe every file with a Telugu Whisper and log how far it is off
+VAST_CHECK_WARN = 0.15                       # log a "listen to it" warning above this difference (numbers count too)
+TTS_DIR = ROOT / "TTS-Fine_tuning"           # where a new instance is set up from: its scripts and the voice adapter
+VAST_ADAPTER_RUN = "runs/suresh_s100"        # inside TTS_DIR; the release is rebuilt from it on a new instance
+VAST_ADAPTER = "adapter_last.pt"
+VAST_POLL = 10                               # seconds between "is the next voice ready?" checks
+VAST_SETUP_TIMEOUT = 60 * 60                 # setting up a new instance (installing, then rebuilding the voice)
+VAST_STALL_TIMEOUT = 20 * 60                 # give up when no voice has arrived for this long (the box keeps going)
+
 # ---- Step 5: ChatGPT thumbnails ----
 CHATGPT_URL = "https://chatgpt.com/c/6b045698-8154-83ee-800d-0975811b351d"   # the chat every thumbnail is asked for in
 THUMBNAIL_FILE = "thumbnail.png"            # name of the thumbnail in the topic folder

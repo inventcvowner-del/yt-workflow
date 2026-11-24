@@ -4,6 +4,7 @@ for every topic.
 Commands:
     run status           list what is still missing, and these commands; generates nothing
     run audio            generate the missing voices in ElevenLabs
+    run audio vast       generate the missing voices with your own voice on the Vast GPU (start the instance first)
     run clips            generate the missing clips in Firefly
     run edit             put clips and voices together in Premiere and export final.mp4 (close Premiere first)
     run thumbnails       ask ChatGPT for the missing thumbnails (9:16 for shorts, 16:9 for long videos)
@@ -14,7 +15,7 @@ Commands:
 
 Add to any command:
     short-N or long-N    only this video, by its number: "run edit short-11" is short videos\11. ferrofluid,
-                         "run clips long-3" is long videos\3. hepatitis virus
+                         "run clips long-3" is long videos\3. hepatitis virus, "run audio vast long-12"
     --topic "name"       only this topic, by its folder name (with or without its number)
     --kind short|long    only short videos or only long videos
     --watch              never exit: look for new work every few minutes (for runs of hours or days)
@@ -46,17 +47,20 @@ import firefly
 import premiere
 import server
 import topics
+import vast_tts
 import youtube
 
 log = logging.getLogger("run")
 STEPS = {   # step name -> (finds the missing files of a topic, generates them)
     "audio": (topics.pending_audio, elevenlabs.run),
+    "audio-vast": (topics.pending_audio, vast_tts.run),    # "run audio vast": the same voices, made on Vast
     "clips": (topics.pending_clips, firefly.run),
     "edit": (topics.pending_edits, premiere.run),
     "thumbnails": (topics.pending_thumbnails, chatgpt.run),
     "upload": (topics.pending_uploads, youtube.run),
 }
-LOCAL_STEPS = {"edit"}   # steps that do not use Chrome
+LOCAL_STEPS = {"edit", "audio-vast"}   # steps that do not use Chrome
+ENGINE = "vast"     # "run audio vast": the word that picks the Vast voice instead of ElevenLabs
 VIDEO = re.compile(r"(short|long)[-_ ]?(\d+)", re.IGNORECASE)   # one video by its number: short-11, long-3
 BLOCKERS = {   # step name -> (why a topic is skipped by it, what the step is not doing for it)
     "edit": (topics.edit_blockers, "editing"),
@@ -101,6 +105,8 @@ def step_notes(step, args) -> list[str]:
 
 def show_status(args) -> None:
     for step in STEPS:
+        if step == "audio-vast":    # the same files as "audio"
+            continue
         jobs = pending(step, args)
         print(f"{step}: {len(jobs)} pending")
         for job in jobs:
@@ -181,12 +187,20 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("command",
                         choices=["login", "status", "audio", "clips", "edit", "thumbnails", "upload", "all", "ui"])
-    parser.add_argument("video", nargs="?", metavar="short-N|long-N",
-                        help='only this video, by its number: short-11 is "11. ferrofluid" in short videos')
+    parser.add_argument("video", nargs="*", metavar="vast|short-N|long-N",
+                        help='"vast" (only with audio) makes the voices on the Vast GPU; short-11 or long-3 picks '
+                             'one video by its number: short-11 is "11. ferrofluid" in short videos')
     parser.add_argument("--topic", help="only this topic (its folder name)")
     parser.add_argument("--kind", choices=["short", "long"], help="only short or only long videos")
     parser.add_argument("--watch", action="store_true", help="keep running and pick up new work")
     args = parser.parse_args()
+    words = [word for word in args.video if word.lower() != ENGINE]
+    on_vast = len(words) < len(args.video)
+    if on_vast and args.command != "audio":
+        parser.error(f'"{ENGINE}" only goes with audio: run audio {ENGINE} [short-N|long-N]')
+    if len(words) > 1:
+        parser.error(f"only one video at a time, not {' '.join(words)}")
+    args.video = words[0] if words else None
     if args.video:
         named = VIDEO.fullmatch(args.video)
         if not named:
@@ -222,6 +236,8 @@ def main() -> int:
     if os.environ.get(server.STOP_ENV):
         stop_when_input_closes()
     steps = ["audio", "clips", "edit", "thumbnails", "upload"] if args.command == "all" else [args.command]
+    if on_vast:
+        steps = ["audio-vast"]
     try:
         return 0 if work(steps, args) else 1
     except KeyboardInterrupt:
