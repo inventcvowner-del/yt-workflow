@@ -206,13 +206,17 @@ def split_script(text: str) -> list[str]:
     return [part.strip() for part in SECTION_BREAK.split(text) if part.strip()]
 
 
-def pending_clips(topic: Topic) -> list[ClipJob]:
+def clip_jobs(topic: Topic) -> list[ClipJob]:
+    """Every clip video_prompts.txt asks for, in number order."""
     prompts_file = topic.path / "video_prompts.txt"
     if not prompts_file.is_file():
         return []
-    jobs = [ClipJob(topic, number, firefly_prompt(prompt, topic.kind))
+    return [ClipJob(topic, number, firefly_prompt(prompt, topic.kind))
             for number, prompt in sorted(parse_prompts(prompts_file).items())]
-    return [job for job in jobs if not job.target.exists()]
+
+
+def pending_clips(topic: Topic) -> list[ClipJob]:
+    return [job for job in clip_jobs(topic) if not job.target.exists()]
 
 
 def saved_sections(topic: Topic) -> list[Path]:
@@ -235,9 +239,13 @@ def audio_sections(topic: Topic) -> dict[int, str]:
     return dict(enumerate(split_script(read_text(script)), start=1)) if script.is_file() else {}
 
 
+def audio_jobs(topic: Topic) -> list[AudioJob]:
+    """Every voice the topic's narration asks for, in number order."""
+    return [AudioJob(topic, number, text) for number, text in sorted(audio_sections(topic).items()) if text]
+
+
 def pending_audio(topic: Topic) -> list[AudioJob]:
-    jobs = [AudioJob(topic, number, text) for number, text in sorted(audio_sections(topic).items())]
-    return [job for job in jobs if job.text and not job.target.exists()]
+    return [job for job in audio_jobs(topic) if not job.target.exists()]
 
 
 def save_sections(topic: Topic) -> None:
@@ -254,10 +262,15 @@ def newest(files: list[Path]) -> Path | None:
     return max(files, key=lambda f: f.stat().st_mtime, default=None)
 
 
+def final_videos(folder: Path) -> list[Path]:
+    """Every final*.mp4 of a topic folder (older folders have names like 'final video.mp4' and 'final_1.mp4')."""
+    return [f for f in folder.iterdir()
+            if f.is_file() and f.suffix.lower() == ".mp4" and f.stem.strip().lower().startswith("final")]
+
+
 def find_final_video(folder: Path) -> Path | None:
-    """final.mp4, or else the newest final*.mp4 (older folders have names like 'final video.mp4' and 'final_1.mp4')."""
-    videos = [f for f in folder.iterdir()
-              if f.is_file() and f.suffix.lower() == ".mp4" and f.stem.strip().lower().startswith("final")]
+    """final.mp4, or else the newest final*.mp4."""
+    videos = final_videos(folder)
     return newest([f for f in videos if f.stem.strip().lower() == "final"] or videos)
 
 
@@ -307,9 +320,13 @@ def pending_edits(topic: Topic) -> list[EditJob]:
     return [EditJob(topic, tuple(clip_files(topic)), tuple(voice_files(topic)))]
 
 
+def thumbnail_files(folder: Path) -> list[Path]:
+    return [f for f in folder.iterdir()
+            if f.is_file() and f.suffix.lower() in THUMBNAIL_SUFFIXES and THUMBNAIL_NAME.match(f.stem)]
+
+
 def find_thumbnail(folder: Path) -> Path | None:
-    return newest([f for f in folder.iterdir()
-                   if f.is_file() and f.suffix.lower() in THUMBNAIL_SUFFIXES and THUMBNAIL_NAME.match(f.stem)])
+    return newest(thumbnail_files(folder))
 
 
 def parse_listing(path: Path) -> tuple[str, str, tuple[str, ...]]:

@@ -10,6 +10,7 @@ Commands:
     run upload           upload finished videos to YouTube Studio, scheduled into the release plan
     run all              audio, then clips, then edits, then thumbnails, then uploads
     run login            open the automation Chrome to sign in (needed once, or when a site signs you out)
+    run ui               open a page in the browser with a button for each step of each video (same commands)
 
 Add to any command:
     short-N or long-N    only this video, by its number: "run edit short-11" is short videos\11. ferrofluid,
@@ -26,9 +27,12 @@ again to continue: finished files are never generated again.
 import argparse
 import ctypes
 import logging
+import os
 import re
+import signal
 import socket
 import sys
+import threading
 import time
 from logging.handlers import RotatingFileHandler
 
@@ -40,6 +44,7 @@ import config
 import elevenlabs
 import firefly
 import premiere
+import server
 import topics
 import youtube
 
@@ -129,6 +134,17 @@ def keep_awake() -> None:
     ctypes.windll.kernel32.SetThreadExecutionState(continuous | system_required)
 
 
+def stop_when_input_closes() -> None:
+    """For a run started by the page (server.py), which has no Ctrl+C: closing this program's input means the same."""
+    def wait() -> None:
+        try:
+            os.read(sys.stdin.fileno(), 1)
+        except OSError:
+            pass
+        signal.raise_signal(signal.SIGINT)      # like the real Ctrl+C, this also ends a sleep straight away
+    threading.Thread(target=wait, daemon=True).start()
+
+
 def work(steps, args) -> bool:
     """Run passes until nothing is pending, or for ever with --watch. True when everything is done."""
     while steps:
@@ -163,7 +179,8 @@ def work(steps, args) -> bool:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("command", choices=["login", "status", "audio", "clips", "edit", "thumbnails", "upload", "all"])
+    parser.add_argument("command",
+                        choices=["login", "status", "audio", "clips", "edit", "thumbnails", "upload", "all", "ui"])
     parser.add_argument("video", nargs="?", metavar="short-N|long-N",
                         help='only this video, by its number: short-11 is "11. ferrofluid" in short videos')
     parser.add_argument("--topic", help="only this topic (its folder name)")
@@ -189,6 +206,8 @@ def main() -> int:
     if args.command == "status":
         show_status(args)
         return 0
+    if args.command == "ui":
+        return server.serve()
     setup_logging()
     if args.command == "login":
         login()
@@ -200,6 +219,8 @@ def main() -> int:
     except OSError:
         sys.exit("run.py is already running in another window.")
     keep_awake()
+    if os.environ.get(server.STOP_ENV):
+        stop_when_input_closes()
     steps = ["audio", "clips", "edit", "thumbnails", "upload"] if args.command == "all" else [args.command]
     try:
         return 0 if work(steps, args) else 1

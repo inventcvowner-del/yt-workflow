@@ -17,6 +17,7 @@ CHROME_CANDIDATES = [
 ]
 CDP_PORT = 9333
 LOCK_PORT = 9334                 # held while run.py is working, so two runs cannot fight over the tabs
+UI_PORT = 9335                   # "run ui": the page is http://127.0.0.1:9335, reachable from this PC only
 
 # ---- Step 4: Adobe Firefly video clips ----
 FIREFLY_URL = "https://firefly.adobe.com/generate/video"

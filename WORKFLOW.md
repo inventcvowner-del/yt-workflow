@@ -265,6 +265,11 @@ must never be committed. The edit step does not use Chrome: it starts Adobe Prem
 Commands and options: [README.md](README.md). `python run.py audio` is Step 2, `python run.py clips` is Step 4,
 `python run.py edit` is the edit in Premiere, `python run.py thumbnails` is Step 5 and `python run.py upload` is Step 6.
 
+`python run.py ui` (`run ui`) is the same steps as buttons on a page in the browser: `scripts\server.py` serves the
+React app in `ui\` and starts `run.py` with the same arguments as the command line, one command at a time. Its
+Regenerate buttons move a step's old files to the Recycle Bin and run that step again; an uploaded video is never
+regenerated. The server answers this PC only, and only its own page (a request from another website is refused).
+
 How it decides what to do:
 - A voice or clip is "missing" when its file does not exist (`voices\NN.mp3`, `video_clips\Clip NN.mp4`). Finished
   files are never generated again, so a stopped or crashed run continues where it left off.
@@ -308,6 +313,7 @@ Safety rules built in:
 
 Log: `D:\youtube\workflow\yt-workflow\logs\automation.log`. Windows is kept awake while `run.py` is running.
 Setup on a new PC: install Python 3.12, then `python -m pip install -r requirements.txt` (no `playwright install`).
+For the page (`run ui`) also install Node.js and pnpm, then run `pnpm install` and `pnpm build` in the `ui` folder.
 
 ---
 

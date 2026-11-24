@@ -24,6 +24,7 @@ cd /d D:\youtube\workflow\yt-workflow
 | `run all` | Audio, then clips, then edits, then thumbnails, then uploads, then exits. |
 | `run all --watch` | Same, but never exits. It checks for new work every 5 minutes. |
 | `run login` | Opens the automation Chrome so you can sign in again, if a site ever signs you out. |
+| `run ui` | Opens a page in your browser with a button for each step of each video, instead of typing the commands above. See "The page" below. |
 
 `run` is `run.cmd` in this folder. It starts `scripts\run.py` with the installed Python, so it works even when the
 terminal does not know the `python` command. In PowerShell type `.\run status`. `python run.py status` inside the
@@ -41,6 +42,33 @@ Stop with Ctrl+C. Run the same command again to continue; files that already exi
 
 Topic folders are numbered (`3. graphene`, `4. liquid metal gallium`, ...; short and long videos separately) and the
 scripts handle them in number order, so uploads and release slots follow it. A new topic gets the next number.
+
+## The page (`run ui`)
+
+`run ui` opens `http://127.0.0.1:9335` in your browser and keeps a small server running in that terminal window. Leave
+the window open; Ctrl+C there closes the page and stops whatever it is running. The page works on this PC only.
+
+- One row per video, short and long videos on separate tabs, with a cell for Audio, Clips, Edit, Thumbnail and Upload.
+- **Generate** (or **Upload**) appears when a step can run now. It is greyed out when it cannot, and pointing at it says
+  why (for example "no final.mp4").
+- **Regenerate** appears when the step's files exist. It asks first, moves the old files to the Recycle Bin and runs the
+  step again. Regenerating audio spends ElevenLabs credits. A video that is on YouTube has no Regenerate.
+- Click a video's name to open it: every voice and clip has its own ↻ to regenerate just that file, and there are
+  buttons to open the folder, play the final video and run all steps for that video.
+- **Run all** in a column header runs that step for every video on the tab, and **Run all pending** runs everything.
+- The command that is running, a **Stop** button (the same as Ctrl+C) and the live log are on the page.
+
+A button runs the same `run ...` command you could type, so the page and the command line always agree, and only one
+command runs at a time, wherever it was started. Writing the script and the video prompts still needs Copilot.
+
+The page is a React app in the `ui` folder (Vite, TypeScript, Tailwind, pnpm). It is built once into `ui\dist`, which
+is what `run ui` serves. After changing anything in `ui\src`, or on a new PC:
+
+```
+cd ui
+pnpm install
+pnpm build
+```
 
 ## Editing in Premiere
 
