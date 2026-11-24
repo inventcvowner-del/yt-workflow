@@ -28,7 +28,8 @@ Topic folder: `D:\youtube\long videos\<N>. <topic>\` (numbered in order, e.g. `3
    (creates `script.txt`, `voices\`, `video_clips\`). A new topic gets the next number (`5. <topic>`); a topic that
    already has a folder is found by its name.
 2. Write `script.txt` in Telugu, science-explainer style:
-   - Hook (questions to grab attention), then the explanation sections, then the outro (like / share / subscribe + health or safety note if needed).
+   - **Friendly, curious conversation, no questions.** Narrate like a smart friend explaining something fascinating, a little funny, never a lecture. Open with an "imagine this" scene or a surprising everyday moment, speak to the viewer ("మీరు") and explain with simple everyday comparisons (school, kitchen, cricket, buses). Never ask the viewer a question: no "?" anywhere and no tag questions (కదా, తెలుసా, గుర్తుందా); state things instead ("ఆ శబ్దం యంత్రం కోపం కాదు, గ్రేడియంట్ కాయిల్స్ వాయించే అయస్కాంత డ్రమ్"). Humour stays light and never makes fun of illness or patients. Reference: `long videos\5. mri scanner\script.txt`.
+   - Opening, then the explanation sections, then the outro (like / share / subscribe + health or safety note if needed).
    - Separate sections with a line of `--------------------`. Each section is one audio file, so keep sections roughly 20-60 s of narration.
    - Short sentences, one per line, blank line between lines. Use Telugu script for English terms (e.g. లాపరోస్కోపిక్).
 3. Stop and let the user review the script before audio.
@@ -105,7 +106,7 @@ Open 4 tabs of https://firefly.adobe.com/generate/video (same settings in each; 
 
 # Short Video Workflow (Telugu science channel)
 
-Topic folder: `D:\youtube\short videos\<N>. <topic>\` (a new topic gets the next number, e.g. `10. aerogel`). Pick topics from `D:\youtube\short videos\topics.txt` (move a topic from "Pending" to "Done" when its clips are finished).
+Topic folder: `D:\youtube\short videos\<N>. <topic>\` (a new topic gets the next number, e.g. `10. aerogel`). Pick topics from `D:\youtube\short videos\topics.txt` (move a topic from "Pending" to "Done" when its video is on YouTube). Every line of `topics.txt` starts with the video's number, the same number as its folder and as `short-N`: **keep that number when a topic moves to Done, never renumber the lists**, and give a new topic the next number.
 
 | Step | User says | Copilot does | Output |
 |---|---|---|---|
@@ -325,8 +326,9 @@ For the page (`run ui`) also install Node.js and pnpm, then run `pnpm install` a
 ## Naming rules
 - Lowercase, underscores for files; zero-padded numbers (01, 02, ...).
 - Topic folders are named `<N>. <topic in plain English>`, e.g. `3. graphene`. Short and long videos are numbered
-  separately, and the number is the order of the video: the order of `topics.txt` (Done first, then Pending). A new
-  topic gets the next number.
+  separately, and the number is the order of the video. Both `topics.txt` files (`short videos\topics.txt` and
+  `long videos\topics.txt`) list every topic with that same number, under Done or Pending: keep the number when a
+  topic moves to Done (when its video is on YouTube) and never renumber the lists. A new topic gets the next number.
 - The scripts handle the topics in number order (so uploads and release slots follow it: `2.` before `10.`), and a topic
   can be named with or without its number (`--topic graphene` or `--topic "3. graphene"`), or by its number alone:
   `run edit short-11` is `short videos\11. ferrofluid` and `run clips long-3` is `long videos\3. hepatitis virus`.
