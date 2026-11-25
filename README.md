@@ -16,6 +16,7 @@ cd /d D:\youtube\workflow\yt-workflow
 | Command | What it does |
 |---|---|
 | `run status` | Lists missing voices, clips, edits, thumbnails and uploads, followed by all the commands and options for reference. Generates and uploads nothing, so it is always safe. |
+| `run folders` | Makes a folder for every topic in `short videos\topics.txt` and `long videos\topics.txt` that has none yet, e.g. `200. Zero – India's gift that changed mathematics` becomes `short videos\200. zero` with empty `voices` and `video_clips` (and an empty `script.txt` for a long video). A number that already has a folder is never touched. `run folders short-200` makes just that one. |
 | `run clips` | Generates all missing Firefly clips, 5 tabs at once. |
 | `run audio` | Generates all missing ElevenLabs voices, one after another. |
 | `run audio vast` | Generates all missing voices with your own fine-tuned voice on a Vast.ai GPU instead. See "Audio on Vast" below. |

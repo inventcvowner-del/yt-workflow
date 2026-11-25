@@ -12,14 +12,14 @@ Daily schedule:
 
 Date         Short 1 time  Status   Short 2 time  Status   Short 3 time  Status   Short 4 time  Status   Long video time  Status
 2026-11-24   08:00 AM      Done     12:30 PM      Done     04:30 PM      Done     06:00 PM      Done     08:30 PM         Pending
-2026-11-25   08:00 AM      Done     12:30 PM      Done     04:30 PM      Done     06:00 PM      Done     08:30 PM         Pending
-2026-11-26   08:00 AM      Done     12:30 PM      Done     04:30 PM      Done     06:00 PM      Done     08:30 PM         Pending
+2026-11-25   08:00 AM      Done     12:30 PM      Done     04:30 PM      Done     06:00 PM      Done     08:30 PM         Done   
+2026-11-26   08:00 AM      Done     12:30 PM      Done     04:30 PM      Done     06:00 PM      Done     08:30 PM         Done   
 2026-11-27   08:00 AM      Done     12:30 PM      Done     04:30 PM      Done     06:00 PM      Done     08:30 PM         Pending
 2026-11-28   08:00 AM      Done     12:30 PM      Done     04:30 PM      Done     06:00 PM      Done     08:30 PM         Pending
 2026-11-29   08:00 AM      Done     12:30 PM      Done     04:30 PM      Done     06:00 PM      Done     08:30 PM         Pending
-2026-11-30   08:00 AM      Done     12:30 PM      Pending  04:30 PM      Pending  06:00 PM      Pending  08:30 PM         Pending
-2026-12-01   08:00 AM      Pending  12:30 PM      Pending  04:30 PM      Pending  06:00 PM      Pending  08:30 PM         Pending
-2026-12-02   08:00 AM      Pending  12:30 PM      Pending  04:30 PM      Pending  06:00 PM      Pending  08:30 PM         Pending
+2026-11-30   08:00 AM      Done     12:30 PM      Done     04:30 PM      Done     06:00 PM      Done     08:30 PM         Pending
+2026-12-01   08:00 AM      Done     12:30 PM      Done     04:30 PM      Done     06:00 PM      Done     08:30 PM         Pending
+2026-12-02   08:00 AM      Done     12:30 PM      Done     04:30 PM      Done     06:00 PM      Pending  08:30 PM         Pending
 2026-12-03   08:00 AM      Pending  12:30 PM      Pending  04:30 PM      Pending  06:00 PM      Pending  08:30 PM         Pending
 2026-12-04   08:00 AM      Pending  12:30 PM      Pending  04:30 PM      Pending  06:00 PM      Pending  08:30 PM         Pending
 2026-12-05   08:00 AM      Pending  12:30 PM      Pending  04:30 PM      Pending  06:00 PM      Pending  08:30 PM         Pending

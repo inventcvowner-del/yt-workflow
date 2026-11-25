@@ -3,6 +3,7 @@ for every topic.
 
 Commands:
     run status           list what is still missing, and these commands; generates nothing
+    run folders          make a folder for every topic in topics.txt that has none yet ("200. zero")
     run audio            generate the missing voices in ElevenLabs
     run audio vast       generate the missing voices with your own voice on the Vast GPU (start the instance first)
     run clips            generate the missing clips in Firefly
@@ -44,6 +45,7 @@ import chrome
 import config
 import elevenlabs
 import firefly
+import folders
 import premiere
 import server
 import topics
@@ -186,7 +188,8 @@ def work(steps, args) -> bool:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("command",
-                        choices=["login", "status", "audio", "clips", "edit", "thumbnails", "upload", "all", "ui"])
+                        choices=["login", "status", "folders", "audio", "clips", "edit", "thumbnails", "upload", "all",
+                                 "ui"])
     parser.add_argument("video", nargs="*", metavar="vast|short-N|long-N",
                         help='"vast" (only with audio) makes the voices on the Vast GPU; short-11 or long-3 picks '
                              'one video by its number: short-11 is "11. ferrofluid" in short videos')
@@ -208,6 +211,10 @@ def main() -> int:
         if args.topic or args.kind:
             parser.error(f"use either {args.video} or --topic/--kind, not both")
         kind, number = named.group(1).lower(), int(named.group(2))
+        if args.command == "folders":       # the folder may not exist yet: that is the point
+            setup_logging()
+            folders.run([kind], number)
+            return 0
         found = topics.find_numbered(kind, number)
         if not found:
             parser.error(f'there is no {kind} video {number} (a folder named "{number}. <topic>")')
@@ -219,6 +226,12 @@ def main() -> int:
 
     if args.command == "status":
         show_status(args)
+        return 0
+    if args.command == "folders":
+        if args.topic:
+            parser.error("run folders takes short-N, long-N or --kind, not --topic")
+        setup_logging()
+        folders.run((args.kind,) if args.kind else ("short", "long"))
         return 0
     if args.command == "ui":
         return server.serve()
