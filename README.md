@@ -19,6 +19,7 @@ cd /d D:\youtube\workflow\yt-workflow
 | `run folders` | Makes a folder for every topic in `short videos\topics.txt` and `long videos\topics.txt` that has none yet, e.g. `200. Zero – India's gift that changed mathematics` becomes `short videos\200. zero` with empty `voices` and `video_clips` (and an empty `script.txt` for a long video). A number that already has a folder is never touched. `run folders short-200` makes just that one. |
 | `run clips` | Generates all missing Firefly clips, 5 tabs at once. |
 | `run audio` | Generates all missing ElevenLabs voices, one after another. |
+| `run audio short` / `run audio long` | Generates the missing ElevenLabs voices for short videos only, or long videos only. `run audio vast short` / `run audio vast long` does the same on Vast. |
 | `run audio vast` | Generates all missing voices with your own fine-tuned voice on a Vast.ai GPU instead. See "Audio on Vast" below. |
 | `run edit` | Starts Premiere for every topic whose clips and voices are complete, builds `editing.prproj` and exports `final.mp4` (1080 x 1920 for shorts, 4K for long videos). Close Premiere first. |
 | `run thumbnails` | Asks ChatGPT for every missing thumbnail (9:16 for shorts, 16:9 for long videos) and saves it as `thumbnail.png` in the topic folder. |
@@ -27,6 +28,7 @@ cd /d D:\youtube\workflow\yt-workflow
 | `run all --watch` | Same, but never exits. It checks for new work every 5 minutes. |
 | `run login` | Opens the automation Chrome so you can sign in again, if a site ever signs you out. |
 | `run ui` | Opens a page in your browser with a button for each step of each video, instead of typing the commands above. See "The page" below. |
+| `run update short-narration-script-length` | Reads the length of `voices\01.mp3` in every short and writes how many clip scripts it needs at the end of its `narration.txt`: one per started 10 seconds (0-10 s = 1, 10-20 s = 2, ..., 37.7 s = 4), as `4 scripts` followed by a `--------------` line. An older count is replaced. Shorts without a voice are skipped. Add `short-29` for just one. The line is never narrated. Needs `pip install mutagen`. |
 
 `run` is `run.cmd` in this folder. It starts `scripts\run.py` with the installed Python, so it works even when the
 terminal does not know the `python` command. In PowerShell type `.\run status`. `python run.py status` inside the
@@ -38,7 +40,8 @@ Options (add to any command):
 |---|---|
 | `short-N` / `long-N` | Only this video, by its number: `run edit short-11` is `short videos\11. ferrofluid`, `run clips long-3` is `long videos\3. hepatitis virus`, `run audio vast long-12` is `long videos\12. lithium-ion battery`. Works with every command. Without it, a command handles all topics. |
 | `--topic "folder name"` | Only this topic, with or without its number, e.g. `--topic "quantum tunneling"` or `--topic "6. quantum tunneling"`. |
-| `--kind short` / `--kind long` | Only short videos or only long videos. |
+| `short` / `long` | Only short videos or only long videos, e.g. `run audio short`, `run clips long`. Works with every command. |
+| `--kind short` / `--kind long` | The same as `short` / `long`. |
 
 Stop with Ctrl+C. Run the same command again to continue; files that already exist are skipped.
 

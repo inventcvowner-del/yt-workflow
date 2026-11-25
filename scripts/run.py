@@ -13,12 +13,15 @@ Commands:
     run all              audio, then clips, then edits, then thumbnails, then uploads
     run login            open the automation Chrome to sign in (needed once, or when a site signs you out)
     run ui               open a page in the browser with a button for each step of each video (same commands)
+    run update short-narration-script-length
+                         write "N scripts" at the end of each short's narration.txt, one per 10 s of voices\01.mp3
 
 Add to any command:
     short-N or long-N    only this video, by its number: "run edit short-11" is short videos\11. ferrofluid,
                          "run clips long-3" is long videos\3. hepatitis virus, "run audio vast long-12"
     --topic "name"       only this topic, by its folder name (with or without its number)
-    --kind short|long    only short videos or only long videos
+    short or long        only short videos or only long videos: "run audio short", "run audio vast long"
+    --kind short|long    the same as short or long
     --watch              never exit: look for new work every few minutes (for runs of hours or days)
 
 Without short-N, long-N, --topic or --kind a command handles every topic that has work left.
@@ -46,6 +49,7 @@ import config
 import elevenlabs
 import firefly
 import folders
+import narration_length
 import premiere
 import server
 import topics
@@ -64,6 +68,7 @@ STEPS = {   # step name -> (finds the missing files of a topic, generates them)
 LOCAL_STEPS = {"edit", "audio-vast"}   # steps that do not use Chrome
 ENGINE = "vast"     # "run audio vast": the word that picks the Vast voice instead of ElevenLabs
 VIDEO = re.compile(r"(short|long)[-_ ]?(\d+)", re.IGNORECASE)   # one video by its number: short-11, long-3
+UPDATES = {"short-narration-script-length": "short"}   # "run update <what>" -> the kind of video it changes
 BLOCKERS = {   # step name -> (why a topic is skipped by it, what the step is not doing for it)
     "edit": (topics.edit_blockers, "editing"),
     "thumbnails": (topics.thumbnail_blockers, "making a thumbnail"),
@@ -189,18 +194,33 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("command",
                         choices=["login", "status", "folders", "audio", "clips", "edit", "thumbnails", "upload", "all",
-                                 "ui"])
-    parser.add_argument("video", nargs="*", metavar="vast|short-N|long-N",
-                        help='"vast" (only with audio) makes the voices on the Vast GPU; short-11 or long-3 picks '
-                             'one video by its number: short-11 is "11. ferrofluid" in short videos')
+                                 "ui", "update"])
+    parser.add_argument("video", nargs="*", metavar="vast|short|long|short-N|long-N",
+                        help='"vast" (only with audio) makes the voices on the Vast GPU; short or long handles only '
+                             'short or only long videos; short-11 or long-3 picks one video by its number: '
+                             'short-11 is "11. ferrofluid" in short videos')
     parser.add_argument("--topic", help="only this topic (its folder name)")
     parser.add_argument("--kind", choices=["short", "long"], help="only short or only long videos")
     parser.add_argument("--watch", action="store_true", help="keep running and pick up new work")
     args = parser.parse_args()
+    update = None
+    if args.command == "update":
+        update = next((word.lower() for word in args.video if word.lower() in UPDATES), None)
+        if not update:
+            parser.error("run update takes one of: " + ", ".join(UPDATES))
+        args.video = [word for word in args.video if word.lower() != update]
     words = [word for word in args.video if word.lower() != ENGINE]
     on_vast = len(words) < len(args.video)
     if on_vast and args.command != "audio":
         parser.error(f'"{ENGINE}" only goes with audio: run audio {ENGINE} [short-N|long-N]')
+    kinds = {word.lower() for word in words if word.lower() in ("short", "long")}   # "run audio short"
+    words = [word for word in words if word.lower() not in ("short", "long")]
+    if kinds:
+        if len(kinds) > 1:
+            parser.error("write short or long, not both (leave both out for all videos)")
+        if args.kind and args.kind not in kinds:
+            parser.error(f"use either {kinds.pop()} or --kind {args.kind}, not both")
+        args.kind = kinds.pop()
     if len(words) > 1:
         parser.error(f"only one video at a time, not {' '.join(words)}")
     args.video = words[0] if words else None
@@ -208,7 +228,7 @@ def main() -> int:
         named = VIDEO.fullmatch(args.video)
         if not named:
             parser.error(f'"{args.video}" is not a video: write short-11 or long-3')
-        if args.topic or args.kind:
+        if args.topic or (args.kind and args.kind != VIDEO.fullmatch(args.video).group(1).lower()):
             parser.error(f"use either {args.video} or --topic/--kind, not both")
         kind, number = named.group(1).lower(), int(named.group(2))
         if args.command == "folders":       # the folder may not exist yet: that is the point
@@ -236,6 +256,12 @@ def main() -> int:
     if args.command == "ui":
         return server.serve()
     setup_logging()
+    if update:
+        if args.kind and args.kind != UPDATES[update]:
+            parser.error(f"{update} only changes {UPDATES[update]} videos")
+        args.kind = UPDATES[update]
+        narration_length.run(selected_topics(args))
+        return 0
     if args.command == "login":
         login()
         return 0
